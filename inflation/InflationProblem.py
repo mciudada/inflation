@@ -178,6 +178,15 @@ class InflationProblem:
         self.settings_per_party = np.asarray(
             [np.prod(multisetting) for multisetting in settings_per_party_lst],
             dtype=int)
+        
+        self.children_per_party = {p: [] for p in range(self.nr_parties)}
+        for child, parent_list in enumerate(self.parents_per_party):
+            if parent_list.size > 0:
+                for parent in parent_list:
+                    try:
+                        self.children_per_party[parent].append(child)
+                    except KeyError:
+                        self.children_per_party[parent] = [child]
 
         # Build the correspondence between effective settings and the true
         # tuple of setting values of all parents.
@@ -974,3 +983,53 @@ class InflationProblem:
                                       product(*possible_syms_per_party)])
 
         return np.take(self.original_dag_events, orig_order_perms, axis=0)
+    
+    def _possible_setting_specific_outcome_relabelling_symmetries2(self) -> List[np.ndarray]:
+        """
+        Yields all possible setting relabellings paired with all possible
+        setting-dependant outcome relabellings as
+        permutations of the events on the original graph. Seperated by party,
+        so that iteration will involve itertools.product.
+        """
+        nr_original_events = len(self.original_dag_events)
+        default_events_order = np.arange(nr_original_events)
+        original_dag_lookup = {op.tobytes(): i
+                               for i, op in enumerate(self.original_dag_events)}
+        # empty_perm = np.empty((0, nr_original_events), dtype=int)
+        # empty_perm = default_events_order.copy().reshape((1, nr_original_events))
+        empty_perm = list(range(nr_original_events))
+
+
+        sym_generators = [empty_perm]
+        for p in range(self.nr_parties):
+            for x in range(self.private_settings_per_party[p]):
+                template = self.original_dag_events.copy()
+                for i, perm in enumerate(permutations(range(self.outcomes_per_party[p]))):
+                    if i > 0:  # skip empty perm
+                        if self.has_children[p]:
+                            # TODO
+                            # for child in children_per_party[p]:
+                                # child_settings = self.effective_to_parent_settings[child]
+                                # new_child_settings = 
+                            ...
+                        else:
+                            template[(template[:, 0] == p + 1) * (template[:, 1] == x), 2] = np.array(perm)
+                            new_syms = [original_dag_lookup[op.tobytes()] for op in template]
+                            sym_generators += [new_syms]
+
+        sym_generators_on_lexorder = []
+        for sym in sym_generators:
+            sym_map = {op1.tobytes(): op2
+                       for op1, op2 in zip(self.original_dag_events,
+                                           self.original_dag_events[sym])}
+            lexorder_copy = self._lexorder.copy()
+            for i in range(lexorder_copy.shape[0]):
+                lexorder_copy[i, np.array([0, -2, -1])] = \
+                    sym_map[lexorder_copy[i, np.array([0, -2, -1])].tobytes()]
+            lexorder_perm = [self._lexorder_lookup[op.tobytes()] for op in lexorder_copy]
+            sym_generators_on_lexorder += [lexorder_perm]
+
+        return sym_generators_on_lexorder                          
+
+def _possible_party_specific_setting_relabelling_symmetries(self):
+    ...
