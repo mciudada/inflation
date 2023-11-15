@@ -911,80 +911,102 @@ class InflationProblem:
                                   range(self.nr_parties)),
                                  dtype=int),
                      ))
-        return discovered_automorphisms
-
-    #TASK: Obtain a list of all setting relabellings,
-    # and all outcome-per-setting relabellings.
-    def _possible_setting_specific_outcome_relabelling_symmetries(self) -> List[np.ndarray]:
-        """
-        Yields all possible setting relabellings paired with all possible
-        setting-dependant outcome relabellings as
-        permutations of the events on the original graph. Seperated by party,
-        so that iteration will involve itertools.product.
-        """
-        nr_original_events = len(self.original_dag_events)
-        default_events_order = np.arange(nr_original_events)
+                
+        lexorder_to_original_dag_events = {i: op[[0, -2, -1]] 
+                                           for i, op in enumerate(self._lexorder)}
         original_dag_lookup = {op.tobytes(): i
                                for i, op in enumerate(self.original_dag_events)}
-        # empty_perm = np.empty((0, nr_original_events), dtype=int)
-        empty_perm = default_events_order.copy().reshape((1, nr_original_events))
-        possible_syms_per_party = []
-        for p, (card_in, card_out) in enumerate(zip(
-            self.settings_per_party.flat,
-            self.outcomes_per_party.flat)):
-            possible_syms = set()
-            # TEMPORARY BYPASS OF COMPLICATED STUFF: skip symmetry if party `p`
-            # has a nontrivial parent, or has children.
-            if self.has_children[p] or any(
-                    self.outcomes_per_party[parent] > 1 for
-                    parent in self.parents_per_party[p]):
-                possible_syms_per_party.append(empty_perm)
-                continue
-            ops = np.empty((card_in, card_out, 3), dtype=self._np_dtype)
-            ops[:,:, 0 ] = p + 1
-            for i in range(card_in):
-                ops[i, :, 1] = i
-            for o in range(card_out):
-                ops[:, o, 2] = o
-            ops_flatish = ops.reshape((card_in * card_out, 3))
-            for i_perm in permutations(range(card_in)):
-                ops_copy = ops.copy()
-                for old_i, new_i in enumerate(i_perm):
-                    ops_copy[old_i, :, 1] = new_i
-                    for o_perm in permutations(range(card_out)):
-                        ops_copy[old_i, :, 2] = o_perm
-                        sym = []
-                        for ops_pair in zip(ops_flatish,
-                                ops_copy.reshape((card_in * card_out, 3))):
-                            if not np.array_equal(*ops_pair):
-                                sym.append(ops_pair)
-                        if len(sym) >= 2:
-                            discovered_sym = frozenset((
-                                (op1.tobytes(),
-                                 op2.tobytes()) for op1, op2 in sym))
-                            possible_syms.add(discovered_sym)
-            possible_syms_as_permutations = [default_events_order]
-            for sym in possible_syms:
-                events_order = default_events_order.copy()
-                for evnt1_hash, evnt2_hash in sym:
-                    events_order[original_dag_lookup[evnt1_hash]] = \
-                        original_dag_lookup[evnt2_hash]
-                possible_syms_as_permutations.append(events_order)
-            if len(possible_syms_as_permutations):
-                possible_syms_as_permutations = np.vstack(
-                    possible_syms_as_permutations).astype(int).reshape(
-                    (-1, nr_original_events))
-            else:
-                possible_syms_as_permutations = empty_perm
-            possible_syms_per_party.append(possible_syms_as_permutations)
+        lexorder_perms, original_dag_events_perms = [], []
+        for automorphism in discovered_automorphisms:
+            source_perm, party_perm = automorphism
+            template = self._lexorder.copy()
+            for p, new_p in zip(range(self.nr_parties), party_perm):
+                template[self._lexorder[:, 0] == p + 1, 0] = new_p + 1
+            template = template[:, [0] + (1+source_perm).tolist() + [-2, -1]]
+            lexorder_perm = [self._lexorder_lookup[op.tobytes()] for op in template]
+            lexorder_perms += [lexorder_perm]
+            lexorder_to_original_dag_events_perm = {i: op[[0, -2, -1]] 
+                                           for i, op in enumerate(template)}
+            original_dag_event_perm_dict = {lexorder_to_original_dag_events[i].tobytes(): lexorder_to_original_dag_events_perm[i]
+                                       for i in range(self._lexorder.shape[0])}
+            permuted_dag_events = np.array([original_dag_event_perm_dict[op.tobytes()] for op in self.original_dag_events])
+            dag_events_permutation = [original_dag_lookup[op.tobytes()] for op in permuted_dag_events]
+            original_dag_events_perms += [dag_events_permutation]
+        
+        return lexorder_perms, original_dag_events_perms
 
-        orig_order_perms = np.vstack([reduce(np.take, perms)
-                                      for perms in
-                                      product(*possible_syms_per_party)])
+    # #TASK: Obtain a list of all setting relabellings,
+    # # and all outcome-per-setting relabellings.
+    # def _possible_setting_specific_outcome_relabelling_symmetries(self) -> List[np.ndarray]:
+    #     """
+    #     Yields all possible setting relabellings paired with all possible
+    #     setting-dependant outcome relabellings as
+    #     permutations of the events on the original graph. Seperated by party,
+    #     so that iteration will involve itertools.product.
+    #     """
+    #     nr_original_events = len(self.original_dag_events)
+    #     default_events_order = np.arange(nr_original_events)
+    #     original_dag_lookup = {op.tobytes(): i
+    #                            for i, op in enumerate(self.original_dag_events)}
+    #     # empty_perm = np.empty((0, nr_original_events), dtype=int)
+    #     empty_perm = default_events_order.copy().reshape((1, nr_original_events))
+    #     possible_syms_per_party = []
+    #     for p, (card_in, card_out) in enumerate(zip(
+    #         self.settings_per_party.flat,
+    #         self.outcomes_per_party.flat)):
+    #         possible_syms = set()
+    #         # TEMPORARY BYPASS OF COMPLICATED STUFF: skip symmetry if party `p`
+    #         # has a nontrivial parent, or has children.
+    #         if self.has_children[p] or any(
+    #                 self.outcomes_per_party[parent] > 1 for
+    #                 parent in self.parents_per_party[p]):
+    #             possible_syms_per_party.append(empty_perm)
+    #             continue
+    #         ops = np.empty((card_in, card_out, 3), dtype=self._np_dtype)
+    #         ops[:,:, 0 ] = p + 1
+    #         for i in range(card_in):
+    #             ops[i, :, 1] = i
+    #         for o in range(card_out):
+    #             ops[:, o, 2] = o
+    #         ops_flatish = ops.reshape((card_in * card_out, 3))
+    #         for i_perm in permutations(range(card_in)):
+    #             ops_copy = ops.copy()
+    #             for old_i, new_i in enumerate(i_perm):
+    #                 ops_copy[old_i, :, 1] = new_i
+    #                 for o_perm in permutations(range(card_out)):
+    #                     ops_copy[old_i, :, 2] = o_perm
+    #                     sym = []
+    #                     for ops_pair in zip(ops_flatish,
+    #                             ops_copy.reshape((card_in * card_out, 3))):
+    #                         if not np.array_equal(*ops_pair):
+    #                             sym.append(ops_pair)
+    #                     if len(sym) >= 2:
+    #                         discovered_sym = frozenset((
+    #                             (op1.tobytes(),
+    #                              op2.tobytes()) for op1, op2 in sym))
+    #                         possible_syms.add(discovered_sym)
+    #         possible_syms_as_permutations = [default_events_order]
+    #         for sym in possible_syms:
+    #             events_order = default_events_order.copy()
+    #             for evnt1_hash, evnt2_hash in sym:
+    #                 events_order[original_dag_lookup[evnt1_hash]] = \
+    #                     original_dag_lookup[evnt2_hash]
+    #             possible_syms_as_permutations.append(events_order)
+    #         if len(possible_syms_as_permutations):
+    #             possible_syms_as_permutations = np.vstack(
+    #                 possible_syms_as_permutations).astype(int).reshape(
+    #                 (-1, nr_original_events))
+    #         else:
+    #             possible_syms_as_permutations = empty_perm
+    #         possible_syms_per_party.append(possible_syms_as_permutations)
 
-        return np.take(self.original_dag_events, orig_order_perms, axis=0)
+    #     orig_order_perms = np.vstack([reduce(np.take, perms)
+    #                                   for perms in
+    #                                   product(*possible_syms_per_party)])
+
+    #     return np.take(self.original_dag_events, orig_order_perms, axis=0)
     
-    def _possible_setting_specific_outcome_relabelling_symmetries2(self) -> List[np.ndarray]:
+    def _possible_setting_specific_outcome_relabelling_symmetries(self) -> List[np.ndarray]:
         """
         Yields all possible setting relabellings paired with all possible
         setting-dependant outcome relabellings as
@@ -1029,7 +1051,44 @@ class InflationProblem:
             lexorder_perm = [self._lexorder_lookup[op.tobytes()] for op in lexorder_copy]
             sym_generators_on_lexorder += [lexorder_perm]
 
-        return sym_generators_on_lexorder                          
+        return sym_generators_on_lexorder, sym_generators                       
 
-def _possible_party_specific_setting_relabelling_symmetries(self):
-    ...
+    def _possible_party_specific_setting_relabelling_symmetries(self):
+        nr_original_events = len(self.original_dag_events)
+        default_events_order = np.arange(nr_original_events)
+        original_dag_lookup = {op.tobytes(): i
+                                for i, op in enumerate(self.original_dag_events)}
+        # empty_perm = np.empty((0, nr_original_events), dtype=int)
+        # empty_perm = default_events_order.copy().reshape((1, nr_original_events))
+        empty_perm = list(range(nr_original_events))
+
+        sym_generators = [empty_perm]
+        for p in range(self.nr_parties):
+            for a in range(self.outcomes_per_party[p]):
+                template = self.original_dag_events.copy()
+                for i, perm in enumerate(permutations(range(self.private_settings_per_party[p]))):
+                    if i > 0:  # skip empty perm
+                        if self.has_children[p]:
+                            # TODO
+                            # for child in children_per_party[p]:
+                                # child_settings = self.effective_to_parent_settings[child]
+                                # new_child_settings = 
+                            ...
+                        else:
+                            template[(template[:, 0] == p + 1) * (template[:, 2] == a), 1] = np.array(perm)
+                            new_syms = [original_dag_lookup[op.tobytes()] for op in template]
+                            sym_generators += [new_syms]
+
+        sym_generators_on_lexorder = []
+        for sym in sym_generators:
+            sym_map = {op1.tobytes(): op2
+                        for op1, op2 in zip(self.original_dag_events,
+                                            self.original_dag_events[sym])}
+            lexorder_copy = self._lexorder.copy()
+            for i in range(lexorder_copy.shape[0]):
+                lexorder_copy[i, np.array([0, -2, -1])] = \
+                    sym_map[lexorder_copy[i, np.array([0, -2, -1])].tobytes()]
+            lexorder_perm = [self._lexorder_lookup[op.tobytes()] for op in lexorder_copy]
+            sym_generators_on_lexorder += [lexorder_perm]
+
+        return sym_generators_on_lexorder, sym_generators
