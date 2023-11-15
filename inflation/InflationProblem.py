@@ -1147,3 +1147,7 @@ class InflationProblem:
                 good_inf_perms += [perm_inflation]
             
         return good_orig_perms, good_inf_perms
+    
+    def add_symmetries(self, extra_symmetries):
+        self.lexorder_symmetries  # trigger calculation
+        self.lexorder_symmetries = np.vstack((self.lexorder_symmetries, np.array(extra_symmetries)))
