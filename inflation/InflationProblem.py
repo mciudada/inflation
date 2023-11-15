@@ -1092,3 +1092,58 @@ class InflationProblem:
             sym_generators_on_lexorder += [lexorder_perm]
 
         return sym_generators_on_lexorder, sym_generators
+    
+    
+    def discover_distribution_symmetries(self, symmetric_distribution):
+        from sympy.combinatorics.perm_groups import PermutationGroup, Permutation
+        party_relabeling_gen_lexorder, party_relabeling_gen_original_events = \
+            self._possible_party_relabelling_symmetries()
+        setting_relabeling_gen_lexorder, setting_relabeling_gen_original_events = \
+            self._possible_party_specific_setting_relabelling_symmetries()
+        outcome_relabeling_gen_lexorder, outcome_relabeling_gen_original_events = \
+            self._possible_setting_specific_outcome_relabelling_symmetries()
+        
+        # Join them into a single permutation that acts on a concatenation 
+        # of the lexorder and the original events
+        offset = len(self.original_dag_events)
+        original_dag_events_order = {tuple(op): i for i, op in enumerate(self.original_dag_events)}
+        
+        party_relabeling = []
+        for perm_inf, perm_orig in zip(party_relabeling_gen_lexorder, party_relabeling_gen_original_events):
+            party_relabeling += [perm_orig + [i + offset for i in perm_inf]]
+        setting_relabeling = []
+        for perm_inf, perm_orig in zip(setting_relabeling_gen_lexorder, setting_relabeling_gen_original_events):
+            setting_relabeling += [perm_orig + [i + offset for i in perm_inf]]       
+        outcome_relabeling = []
+        for perm_inf, perm_orig in zip(outcome_relabeling_gen_lexorder, outcome_relabeling_gen_original_events):
+            outcome_relabeling += [perm_orig + [i + offset for i in perm_inf]] 
+
+        all_relabelings = party_relabeling + setting_relabeling + outcome_relabeling
+        G = PermutationGroup([Permutation(perm) for perm in all_relabelings])
+            
+        original_dag_monomials_values = {}
+        original_dag_monomials = []
+        for ins in np.ndindex(*self.settings_per_party):
+            for outs in np.ndindex(*self.outcomes_per_party):
+                original_dag_lexboolvec = np.zeros(offset, dtype=bool)
+                for p, (x, a) in enumerate(zip(ins, outs)):
+                    original_dag_lexboolvec[original_dag_events_order[(p + 1, x, a)]] = True
+                original_dag_monomials += [original_dag_lexboolvec]
+                original_dag_monomials_values[original_dag_lexboolvec.tobytes()] = symmetric_distribution[(*outs, *ins)]
+        original_dag_monomials = np.array(original_dag_monomials)
+        original_values = np.array([original_dag_monomials_values[mon.tobytes()] for mon in original_dag_monomials])
+        good_orig_perms = []
+        good_inf_perms = []
+        for perm in G.elements:
+            perm_as_list = list(perm)
+            perm_original = perm_as_list[:offset]
+            perm_inflation = perm_as_list[offset:]
+            
+            lexboolvecs = original_dag_monomials.copy()
+            lexboolvecs = lexboolvecs[:, perm_original]  # permute the columns
+            new_values = np.array([original_dag_monomials_values[mon.tobytes()] for mon in lexboolvecs])
+            if np.allclose(new_values, original_values):
+                good_orig_perms += [perm_original]
+                good_inf_perms += [perm_inflation]
+            
+        return good_orig_perms, good_inf_perms
