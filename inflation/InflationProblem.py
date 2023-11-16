@@ -1137,7 +1137,7 @@ class InflationProblem:
         for perm in G.elements:
             perm_as_list = list(perm)
             perm_original = perm_as_list[:offset]
-            perm_inflation = perm_as_list[offset:]
+            perm_inflation = [i - offset for i in perm_as_list[offset:]]
             
             lexboolvecs = original_dag_monomials.copy()
             lexboolvecs = lexboolvecs[:, perm_original]  # permute the columns

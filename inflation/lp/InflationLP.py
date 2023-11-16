@@ -1109,7 +1109,8 @@ class InflationLP(object):
         self._raw_lookup_dict = {bitvec.tobytes(): i for i, bitvec in
                                  enumerate(self._raw_monomials_as_lexboolvecs)}
 
-        symmetrization_required = np.any(self.inflation_levels - 1)
+        # symmetrization_required = np.any(self.inflation_levels - 1)
+        symmetrization_required = True
         if symmetrization_required:
             # Calculate the inflation symmetries
             if self.verbose > 0:
