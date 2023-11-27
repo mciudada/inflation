@@ -1156,19 +1156,9 @@ class InflationProblem:
         original_dag_monomials_lexboolvecs = np.array(original_dag_monomials_lexboolvecs)
         original_values_1d = np.array([original_dag_monomials_values[mon.tobytes()]
                                     for mon in original_dag_monomials_lexboolvecs])
-
-        def _2p(arr):
-            p1_arr = arr[arr[:, 0] == 1]
-            p2_arr = arr[arr[:, 0] == 2]
-            return f"p({p1_arr[0,2]}{p2_arr[0,2]}|{p1_arr[0,1]}{p2_arr[0,1]})"
-
-        DEBUG_old_p = [_2p(e) for e in [self.original_dag_events[i] for i in original_dag_monomials_lexboolvecs]]
-        DEBUG_old_vals = [symmetric_distribution[int(_i[2]), int(_i[3]),int(_i[5]),int(_i[6])] for _i in DEBUG_old_p]
-
         good_orig_perms = []
         good_inf_perms  = []
         good_e = []
-        DEBUG_good_printed = []
         group_elements = np.array(list(G.generate_schreier_sims(af=True)))
         group_elements = group_elements[np.lexsort(np.rot90(group_elements))] # Canonical sorting
         for perm in tqdm(group_elements,
@@ -1180,25 +1170,12 @@ class InflationProblem:
 
             lexboolvecs = original_dag_monomials_lexboolvecs.copy()
             lexboolvecs = lexboolvecs[:, perm_original]  # permute the columns
-            DEBUG_new_p = [_2p(e) for e in [self.original_dag_events[i] for i in lexboolvecs]]
-            DEBUG__string_perm = [p+'->'+pt for p,pt in zip(DEBUG_old_p, DEBUG_new_p) if p != pt]
             new_values_1d = np.array([original_dag_monomials_values[mon.tobytes()]
                                       for mon in lexboolvecs])
             if np.allclose(new_values_1d, original_values_1d):
                 good_orig_perms += [perm_original]
                 good_inf_perms += [perm_inflation]
                 good_e += [perm]
-                vals_tuple = []
-                for s in DEBUG__string_perm:
-                    p1,p2 = s.split('->')
-                    a,b,x,y = int(p1[2]), int(p1[3]), int(p1[5]), int(p1[6])
-                    a2,b2,x2,y2 = int(p2[2]), int(p2[3]), int(p2[5]), int(p2[6])
-                    assert np.isclose(symmetric_distribution[a,b,x,y], symmetric_distribution[a2,b2,x2,y2]), "Something went wrong!"
-                    vals_tuple += [str(symmetric_distribution[a,b,x,y])+'->'+str(symmetric_distribution[a2,b2,x2,y2])]
-                if DEBUG__string_perm:
-                    DEBUG_good_printed += [[p+','+v for p, v in zip(DEBUG__string_perm, vals_tuple)]]
-                else:
-                    DEBUG_good_printed += ['identity']
 
         return good_orig_perms, good_inf_perms
 
