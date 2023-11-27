@@ -1163,7 +1163,9 @@ class InflationProblem:
         good_inf_perms  = []
         good_e = []
         DEBUG_good_printed = []
-        for perm in tqdm(G.elements,
+        group_elements = np.array(list(G.generate_schreier_sims(af=True)))
+        group_elements = group_elements[np.lexsort(np.rot90(group_elements))] # Canonical sorting
+        for perm in tqdm(group_elements,
                          desc="Checking distribution symmetries",
                          disable=not self.verbose):
             perm_as_list = list(perm)
