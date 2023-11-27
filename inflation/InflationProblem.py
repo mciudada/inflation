@@ -351,6 +351,8 @@ class InflationProblem:
             self._inflation_indices_hash[op.tobytes()]
             for op in self._lexorder[:, 1:-2]],
             dtype=np.intc)
+        
+        # self.lexorder_symmetries = self.discover_lexorder_symmetries()
 
 
 
@@ -1121,8 +1123,8 @@ class InflationProblem:
                                        outcome_relabeling_gen_original_events):
             outcome_relabeling += [perm_orig + [i + offset for i in perm_inf]] 
 
-        # all_relabelings = outcome_relabeling + setting_relabeling + party_relabeling
-        all_relabelings = outcome_relabeling
+        all_relabelings = outcome_relabeling + setting_relabeling + party_relabeling
+        # all_relabelings = outcome_relabeling
         # all_relabelings = setting_relabeling
         # all_relabelings = party_relabeling
         
@@ -1191,6 +1193,9 @@ class InflationProblem:
                     DEBUG_good_printed += ['identity']
             
         return good_orig_perms, good_inf_perms
+    
+    def set_symmetries(self, symmetries):
+        self.lexorder_symmetries = np.array(symmetries)
     
     def add_symmetries(self, extra_symmetries):
         self.lexorder_symmetries = np.vstack((self.lexorder_symmetries, np.array(extra_symmetries)))
