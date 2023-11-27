@@ -924,7 +924,8 @@ class InflationProblem:
             template = self._lexorder.copy()
             for p, new_p in zip(range(self.nr_parties), party_perm):
                 template[self._lexorder[:, 0] == p + 1, 0] = new_p + 1
-            template = template[:, [0] + (1+source_perm).tolist() + [-2, -1]]
+            new_source_perm = np.argsort(source_perm)
+            template = template[:, [0] + (1+new_source_perm).tolist() + [-2, -1]]
             lexorder_perm = [self._lexorder_lookup[op.tobytes()] for op in template]
             lexorder_perms += [lexorder_perm]
             lexorder_to_original_dag_events_perm = {i: op[[0, -2, -1]]
