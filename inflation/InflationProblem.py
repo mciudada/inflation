@@ -1016,7 +1016,7 @@ class InflationProblem:
         so that iteration will involve itertools.product.
         """
         nr_original_events = len(self.original_dag_events)
-        default_events_order = np.arange(nr_original_events)
+        # default_events_order = np.arange(nr_original_events)
         original_dag_lookup = {op.tobytes(): i
                                for i, op in enumerate(self.original_dag_events)}
         # empty_perm = np.empty((0, nr_original_events), dtype=int)
@@ -1026,9 +1026,14 @@ class InflationProblem:
 
         sym_generators = [empty_perm]
         for p in range(self.nr_parties):
+            select_this_party = (self.original_dag_events[:, 0] == p + 1)
+            exclude_final_outcome = (self.original_dag_events[:, 2] < self.outcomes_per_party[p]-1)
+            select_this_party *= exclude_final_outcome
             for x in range(self.private_settings_per_party[p]):
+                select_this_setting = (self.original_dag_events[:, 1] == x)
+                select_this_party_and_this_setting = select_this_party*select_this_setting
                 template = self.original_dag_events.copy()
-                for i, perm in enumerate(permutations(range(self.outcomes_per_party[p]))):
+                for i, perm in enumerate(permutations(range(self.outcomes_per_party[p]-1))):
                     if i > 0:  # skip empty perm
                         if self.has_children[p]:
                             # TODO
@@ -1037,7 +1042,7 @@ class InflationProblem:
                                 # new_child_settings =
                             ...
                         else:
-                            template[(template[:, 0] == p + 1) * (template[:, 1] == x), 2] = np.array(perm)
+                            template[select_this_party_and_this_setting, 2] = np.array(perm)
                             new_syms = [original_dag_lookup[op.tobytes()] for op in template]
                             sym_generators += [new_syms]
 
