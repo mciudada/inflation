@@ -1064,20 +1064,20 @@ class InflationProblem:
 
         sym_generators = [empty_perm]
         for p in range(self.nr_parties):
-            for a in range(self.outcomes_per_party[p]):
-                template = self.original_dag_events.copy()
-                for i, perm in enumerate(permutations(range(self.private_settings_per_party[p]))):
-                    if i > 0:  # skip empty perm
-                        if self.has_children[p]:
-                            # TODO
-                            # for child in children_per_party[p]:
-                                # child_settings = self.effective_to_parent_settings[child]
-                                # new_child_settings = 
-                            ...
-                        else:
+            template = self.original_dag_events.copy()
+            for i, perm in enumerate(permutations(range(self.private_settings_per_party[p]))):
+                if i > 0:  # skip empty perm
+                    if self.has_children[p]:
+                        # TODO
+                        # for child in children_per_party[p]:
+                            # child_settings = self.effective_to_parent_settings[child]
+                            # new_child_settings = 
+                        ...
+                    else:
+                        for a in range(self.outcomes_per_party[p]):
                             template[(template[:, 0] == p + 1) * (template[:, 2] == a), 1] = np.array(perm)
-                            new_syms = [original_dag_lookup[op.tobytes()] for op in template]
-                            sym_generators += [new_syms]
+                        new_syms = [original_dag_lookup[op.tobytes()] for op in template]
+                        sym_generators += [new_syms]
 
         sym_generators_on_lexorder = []
         for sym in sym_generators:
@@ -1125,7 +1125,7 @@ class InflationProblem:
         original_dag_monomials = []
         for ins in np.ndindex(*self.settings_per_party):
             for outs in np.ndindex(*self.outcomes_per_party):
-                original_dag_lexboolvec = np.zeros(offset, dtype=bool)
+                original_dag_lexboolvec = np.zeros(len(self.original_dag_events), dtype=bool)
                 for p, (x, a) in enumerate(zip(ins, outs)):
                     original_dag_lexboolvec[original_dag_events_order[(p + 1, x, a)]] = True
                 original_dag_monomials += [original_dag_lexboolvec]
@@ -1133,7 +1133,8 @@ class InflationProblem:
         original_dag_monomials = np.array(original_dag_monomials)
         original_values = np.array([original_dag_monomials_values[mon.tobytes()] for mon in original_dag_monomials])
         good_orig_perms = []
-        good_inf_perms = []
+        good_inf_perms  = []
+        good_e = []
         for perm in G.elements:
             perm_as_list = list(perm)
             perm_original = perm_as_list[:offset]
@@ -1145,6 +1146,7 @@ class InflationProblem:
             if np.allclose(new_values, original_values):
                 good_orig_perms += [perm_original]
                 good_inf_perms += [perm_inflation]
+                good_e += [perm]
             
         return good_orig_perms, good_inf_perms
     
