@@ -173,7 +173,8 @@ class InflationLP(object):
         self._atomic_monomial_from_hash  = dict()
         self.monomial_from_atoms        = dict()
         self.monomial_from_name         = dict()
-        self.One  = self.Monomial(self.identity_operator, idx=1)
+        self.One  = self.Monomial(self.identity_operator)
+        self.One.idx = 0  # In the LP the first monomial should be 1.
         self._generate_lp()
 
     ###########################################################################
@@ -849,7 +850,7 @@ class InflationLP(object):
                     self._atomic_monomial_from_hash[alt_key.tobytes()] = mon
                 return mon
 
-    def Monomial(self, array1d: np.ndarray, idx: int = -1) -> CompoundMoment:
+    def Monomial(self, array1d: np.ndarray) -> CompoundMoment:
         r"""Create an instance of the `CompoundMonomial` class from a 2D array.
         An instance of `CompoundMonomial` is a collection of
         `InternalAtomicMonomial`.
@@ -858,9 +859,6 @@ class InflationLP(object):
         ----------
         array1d : numpy.ndarray
             Moment encoded as a 1D array of integers, relative to _lexorder
-        idx : int, optional
-            Assigns an integer index to the resulting monomial, which can be
-            used as an id, by default -1.
 
         Returns
         -------
@@ -871,9 +869,7 @@ class InflationLP(object):
         _factors = self.factorize_monomial_1d(array1d, canonical_order=False)
         list_of_atoms = [self._AtomicMonomial(factor)
                          for factor in _factors if len(factor)]
-        mon = self._monomial_from_atoms(list_of_atoms)
-        mon.attach_idx(idx)
-        return mon
+        return self._monomial_from_atoms(list_of_atoms)
 
     def _monomial_from_atoms(self,
                              atoms: List[InternalAtomicMonomial]
@@ -1135,17 +1131,17 @@ class InflationLP(object):
             inverse_CG = unique_indices_CG
             self.num_non_CG = self.raw_n_columns_non_CG
             unique_indices_non_CG = np.arange(self.num_non_CG)
-        self.inverse = inverse_CG
 
         self._monomials_as_lexboolvecs = self._raw_monomials_as_lexboolvecs[unique_indices_CG]
+        assert not np.any(self._monomials_as_lexboolvecs[0]), "Sparse indexing requires that first column represent one."
         self._monomials_as_lexboolvecs_non_CG = self._raw_monomials_as_lexboolvecs_non_CG[unique_indices_non_CG]
-        self.n_columns = len(self._monomials_as_lexboolvecs)
+        self.n_columns_before_factor_symmetries = len(self._monomials_as_lexboolvecs)
 
         self.nof_collins_gisin_inequalities = self.num_non_CG
 
         if self.verbose > 0:
-            eprint("Number of variables in the LP:",
-                  self.n_columns)
+            eprint("Upper bound on number of variables in the LP:",
+                  self.n_columns_before_factor_symmetries)
             eprint("Number of nontrivial inequality constraints in the LP:",
                     self.nof_collins_gisin_inequalities)
 
@@ -1158,32 +1154,35 @@ class InflationLP(object):
         _monomial_names = []
         _compmonomial_from_idx = dict()
         _compmonomial_to_idx = dict()
-        boolvec2mon = dict()
-        for idx, mon_as_lexboolvec in tqdm(enumerate(self._monomials_as_lexboolvecs),
-                             disable=not self.verbose,
-                             desc="Initializing monomials   ",
-                             total=self.n_columns):
-            mon = self.Monomial(np.flatnonzero(mon_as_lexboolvec), idx)
-            boolvec2mon[tuple(tuple(op)
-                              for op in self._lexorder[mon_as_lexboolvec])] = mon
+        _monomials_as_set = set()
+        idx = 0
+        inverse_of_inverse = []
+        for raw_idx, mon_as_lexboolvec in tqdm(enumerate(self._monomials_as_lexboolvecs),
+                disable=not self.verbose,
+                desc="Initializing monomials   ",
+                total=self.n_columns_before_factor_symmetries):
+            mon = self.Monomial(np.flatnonzero(mon_as_lexboolvec))
+            inverse_of_inverse.append(idx)
+            if mon in _monomials_as_set:
+                continue
+            mon.idx = idx
             _monomials.append(mon)
             _monomial_names.append(mon.name)
             _compmonomial_from_idx[idx] = mon
-            if mon in _compmonomial_to_idx:
-                print(mon, _compmonomial_from_idx[_compmonomial_to_idx[mon]])
             _compmonomial_to_idx[mon] = idx
-        self.first_free_idx = self.n_columns + 1
+            idx += 1
+        self.first_free_idx = idx
         self.monomials = np.array(_monomials, dtype=object)
         self.monomial_names = np.array(_monomial_names)
         self.compmonomial_from_idx = _compmonomial_from_idx
         self.compmonomial_to_idx = _compmonomial_to_idx
-        del _monomials, _compmonomial_from_idx, _compmonomial_to_idx, _monomial_names
+        self.inverse = np.take(inverse_of_inverse, inverse_CG)
+        self.n_columns = len(self.monomials)
+        del _monomials, _compmonomial_from_idx, _compmonomial_to_idx, _monomial_names, _monomials_as_set, inverse_of_inverse, inverse_CG
         collect(generation=2)
-        assert self.monomials[0] == self.One, "Sparse indexing requires that first column represent one."
-
-        assert len(self.compmonomial_to_idx.keys()) == self.n_columns, \
-            (f"Multiple indices are being associated to the same monomial. \n" +
-            f"Expected {self.n_columns}, got {len(self.compmonomial_to_idx.keys())}.")
+        if self.verbose > 0:
+            eprint("Final number of variables in the LP:",
+                  self.n_columns)
 
 
         if self.verbose > 1:
