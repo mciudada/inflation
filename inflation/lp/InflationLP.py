@@ -1184,6 +1184,9 @@ class InflationLP(object):
         self.n_columns = len(self.monomials)
         del _monomials, _compmonomial_from_idx, _compmonomial_to_idx, _monomial_names, _monomials_as_set, inverse_of_inverse, inverse_CG
         collect(generation=2)
+        assert len(self.compmonomial_to_idx.keys()) == self.n_columns, \
+            (f"Multiple indices are being associated to the same monomial. \n" +
+            f"Expected {self.n_columns}, got {len(self.compmonomial_to_idx.keys())}.")
         if self.verbose > 0:
             eprint("Final number of variables in the LP:",
                   self.n_columns)
