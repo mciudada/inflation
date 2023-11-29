@@ -1158,11 +1158,10 @@ class InflationProblem:
                                     for mon in original_dag_monomials_lexboolvecs])
         good_orig_perms = []
         good_inf_perms  = []
-        good_e = []
         group_elements = np.array(list(G.generate_schreier_sims(af=True)))
         group_elements = group_elements[np.lexsort(np.rot90(group_elements))] # Canonical sorting
         for perm in tqdm(group_elements,
-                         desc="Checking distribution symmetries",
+                         desc="Discovering distribution symmetries",
                          disable=not self.verbose):
             perm_as_list = list(perm)
             perm_original = perm_as_list[:offset]
@@ -1175,7 +1174,8 @@ class InflationProblem:
             if np.allclose(new_values_1d, original_values_1d):
                 good_orig_perms += [perm_original]
                 good_inf_perms += [perm_inflation]
-                good_e += [perm]
+        if self.verbose > 0:
+            print(f"Found {len(good_inf_perms)} symmetries.")
 
         return good_orig_perms, good_inf_perms
 
