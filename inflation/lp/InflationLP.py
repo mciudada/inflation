@@ -1169,6 +1169,7 @@ class InflationLP(object):
             inverse_of_inverse.append(idx)
             if mon in _monomials_as_set:
                 continue
+            _monomials_as_set.add(mon)
             mon.idx = idx
             _monomials.append(mon)
             _monomial_names.append(mon.name)
