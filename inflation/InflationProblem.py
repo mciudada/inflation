@@ -1183,4 +1183,7 @@ class InflationProblem:
         self.lexorder_symmetries = np.array(symmetries)
 
     def add_symmetries(self, extra_symmetries):
-        self.lexorder_symmetries = np.vstack((self.lexorder_symmetries, np.array(extra_symmetries)))
+        self.lexorder_symmetries = np.vstack((self.lexorder_symmetries,
+                                              np.array(extra_symmetries)))
+        # Order the permutations so the identity is first and remove duplicates
+        self.lexorder_symmetries = np.unique(self.lexorder_symmetries, axis=0)
