@@ -1106,7 +1106,11 @@ class InflationLP(object):
                                  enumerate(self._raw_monomials_as_lexboolvecs)}
 
         # symmetrization_required = np.any(self.inflation_levels - 1)
-        symmetrization_required = True
+        # symmetrization_required = True
+        assert np.allclose(self.lexorder_symmetries[0], 
+                           np.arange(self.lexorder_symmetries.shape[1])), \
+            "The first symmetry must be the identity permutation."
+        symmetrization_required = self.lexorder_symmetries.shape[0] > 1
         if symmetrization_required:
             # Calculate the inflation symmetries
             if self.verbose > 0:
