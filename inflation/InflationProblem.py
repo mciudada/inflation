@@ -1185,7 +1185,11 @@ class InflationProblem:
         self.lexorder_symmetries = np.unique(self.lexorder_symmetries, axis=0)
 
     def add_symmetries(self, extra_symmetries):
-        self.lexorder_symmetries = np.vstack((self.lexorder_symmetries,
-                                              np.array(extra_symmetries)))
-        # Order the permutations so the identity is first and remove duplicates
-        self.lexorder_symmetries = np.unique(self.lexorder_symmetries, axis=0)
+        new_symmetries = np.vstack((self.lexorder_symmetries,
+                                    np.array(extra_symmetries)))
+        # Find all the group elements, considering the old symmetries as well
+        from sympy.combinatorics import PermutationGroup, Permutation
+        G = PermutationGroup([Permutation(perm) for perm in new_symmetries])
+        self.lexorder_symmetries = np.unique(np.array([list(perm) 
+                                                       for perm in G.elements]),
+                                             axis=0)
